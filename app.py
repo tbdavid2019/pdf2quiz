@@ -8,7 +8,7 @@ from markitdown import MarkItDown
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 api_base = os.getenv("OPENAI_API_BASE")
-client = OpenAI(api_key=api_key, base_url=api_base)
+# 刪除全域 client，改由 generate_questions 動態初始化
 
 # ✅ 合併多檔案文字
 
@@ -22,10 +22,17 @@ def extract_text_from_files(files):
 
 # ✅ 產出題目與答案（根據語言與題型）
 
-def generate_questions(files, question_types, num_questions, lang):
+def generate_questions(files, question_types, num_questions, lang, llm_key, baseurl):
     try:
         text = extract_text_from_files(files)
         trimmed_text = text[:200000]
+
+        # 優先使用 .env，否則用 UI 傳入值
+        key = os.getenv("OPENAI_API_KEY") or llm_key
+        base = os.getenv("OPENAI_API_BASE") or baseurl
+        if not key or not base:
+            return "⚠️ 請輸入 LLM key 與 baseurl", ""
+        client = OpenAI(api_key=key, base_url=base)
 
         type_map = {
             "單選選擇題": {
@@ -125,7 +132,13 @@ def export_files(questions_text, answers_text):
 
 # ✅ Gradio UI
 
-def main():
+# --- FastAPI + Gradio 整合 ---
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.responses import JSONResponse
+from typing import List, Optional
+import uvicorn
+
+def build_gradio_blocks():
     with gr.Blocks() as demo:
         gr.Markdown("# 📄 通用 AI 出題系統（支援多檔、多語、匯出格式）")
 
@@ -137,6 +150,8 @@ def main():
                                                   label="選擇題型（可複選）",
                                                   value=["單選選擇題"])
                 num_questions = gr.Slider(1, 10, value=3, step=1, label="題目數量")
+                llm_key = gr.Textbox(label="LLM Key (不會儲存)", type="password", placeholder="請輸入你的 OpenAI API Key")
+                baseurl = gr.Textbox(label="Base URL (如 https://api.openai.com/v1)", placeholder="請輸入 API Base URL")
                 generate_btn = gr.Button("✏️ 開始出題")
 
             with gr.Column():
@@ -147,14 +162,89 @@ def main():
                 quizlet_out = gr.File(label="📋 Quizlet (TSV) 檔下載")
 
         generate_btn.click(fn=generate_questions,
-                           inputs=[file_input, question_types, num_questions, lang],
+                           inputs=[file_input, question_types, num_questions, lang, llm_key, baseurl],
                            outputs=[qbox, abox])
 
         export_btn.click(fn=export_files,
                          inputs=[qbox, abox],
                          outputs=[md_out, quizlet_out])
+    return demo
 
-    demo.launch()
+api_app = FastAPI(title="AI 出題系統 API")
 
-if __name__ == "__main__":
-    main()
+# 掛載 Gradio UI 到 FastAPI 根路徑 "/"
+demo = build_gradio_blocks()
+import gradio as gr
+gr.mount_gradio_app(api_app, demo, path="/")
+
+@api_app.post("/api/generate")
+async def api_generate(
+    files: List[UploadFile] = File(...),
+    question_types: List[str] = Form(...),
+    num_questions: int = Form(...),
+    lang: str = Form(...),
+    llm_key: Optional[str] = Form(None),
+    baseurl: Optional[str] = Form(None)
+):
+    # 將 UploadFile 轉為臨時檔案物件，與 Gradio 行為一致
+    temp_files = []
+    for f in files:
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        temp.write(await f.read())
+        temp.flush()
+        temp_files.append(temp)
+        temp.name = temp.name  # 保持介面一致
+
+    # 呼叫原本的出題邏輯
+    questions, answers = generate_questions(
+        temp_files, question_types, num_questions, lang, llm_key, baseurl
+    )
+
+    # 關閉臨時檔案
+    for temp in temp_files:
+        temp.close()
+
+    return JSONResponse({"questions": questions, "answers": answers})
+
+# 啟動方式：
+# uvicorn app:api_app --host 0.0.0.0 --port 7860
+
+# --- FastAPI API 介面 ---
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.responses import JSONResponse
+from typing import List, Optional
+import uvicorn
+
+api_app = FastAPI(title="AI 出題系統 API")
+
+@api_app.post("/api/generate")
+async def api_generate(
+    files: List[UploadFile] = File(...),
+    question_types: List[str] = Form(...),
+    num_questions: int = Form(...),
+    lang: str = Form(...),
+    llm_key: Optional[str] = Form(None),
+    baseurl: Optional[str] = Form(None)
+):
+    # 將 UploadFile 轉為臨時檔案物件，與 Gradio 行為一致
+    temp_files = []
+    for f in files:
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        temp.write(await f.read())
+        temp.flush()
+        temp_files.append(temp)
+        temp.name = temp.name  # 保持介面一致
+
+    # 呼叫原本的出題邏輯
+    questions, answers = generate_questions(
+        temp_files, question_types, num_questions, lang, llm_key, baseurl
+    )
+
+    # 關閉臨時檔案
+    for temp in temp_files:
+        temp.close()
+
+    return JSONResponse({"questions": questions, "answers": answers})
+
+# 若要啟動 API 伺服器，請執行：
+# uvicorn app:api_app --host 0.0.0.0 --port 7861

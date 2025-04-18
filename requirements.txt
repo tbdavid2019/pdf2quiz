@@ -2,3 +2,5 @@ gradio
 python-dotenv
 openai
 markitdown[all]
+fastapi
+uvicorn
