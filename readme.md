@@ -1,33 +1,35 @@
-# 📄 PDF AI 出題系統
+# 📄 通用 AI 出題系統（多檔、多語、Markdown / Quizlet 匯出）
 
-使用 OpenAI GPT 模型，從上傳的 PDF 內容中自動產生考題與答案！  
-支援多種題型，包括單選、多選、問答與申論題。提供直觀的 Gradio UI 介面，適合教育工作者、出版社或個人練習出題使用。
-
----
-
-## 🚀 功能介紹
-
-- 📎 上傳 PDF 並自動解析文字內容
-- ✅ 選擇題型（單選、多選、問答、申論）
-- 🔢 自訂題目數量
-- 📘 題目與 ✅ 答案分開顯示
-- 🧠 使用 GPT-4.1 模型進行智慧出題（可搭配自訂 API 端點）
+本專案使用 OpenAI GPT 模型，從上傳的各種文件（PDF、Word、PPT、Excel 等）自動產生考題與答案！  
+支援多語系、多種題型、多檔合併出題與 Markdown / Quizlet 格式匯出，適合教育工作者、出版社或個人練習出題使用。
 
 ---
 
-## 🛠 安裝方式
+## 🚀 功能特色
 
-1. 安裝必要套件：
+- 📎 **上傳多檔**（PDF、DOCX、PPTX、XLSX）並自動解析
+- ✅ **選擇題型**（單選、多選、問答、申論）
+- 🌐 **多語系支援**（繁體中文／簡體中文／English／日本語）
+- 🔢 **題目數量可調整**
+- 📘 題目與 ✅ 答案分欄顯示
+- 🧠 使用 GPT-4.1 模型出題（支援自訂 API Base）
+- 📤 匯出為 Markdown 與 Quizlet 格式（TSV）
+
+---
+
+## 🛠 安裝與執行方式
+
+### 1️⃣ 安裝必要套件
 
 ```bash
 pip install -r requirements.txt
 
-	2.	建立 .env 檔案，並填入你的 OpenAI 設定：
+2️⃣ 建立 .env 檔案
 
 OPENAI_API_KEY=sk-你的金鑰
 OPENAI_API_BASE=https://api.openai.com/v1
 
-若使用 Azure OpenAI，請加上：
+若使用 Azure OpenAI，請另外加上：
 
 OPENAI_API_TYPE=azure
 OPENAI_API_VERSION=2024-04-01-preview
@@ -40,15 +42,15 @@ OPENAI_API_VERSION=2024-04-01-preview
 
 python app.py
 
-開啟後會啟動 Gradio 網頁介面，讓你上傳 PDF、選擇題型、產生題目與答案。
+啟動後將開啟本地 Gradio 網頁介面，讓你自由上傳檔案、選擇題型與語言，自動產生考題與答案。
 
 ⸻
 
-📂 檔案結構
+📂 專案檔案結構
 
 .
-├── app.py               # 主程式：Gradio 介面與出題邏輯
-├── requirements.txt     # 所需套件
+├── app.py               # 主程式：Gradio UI 與出題邏輯
+├── requirements.txt     # 所需套件清單
 ├── .env                 # API 金鑰與設定（請自行建立）
 └── README.md            # 專案說明
 
@@ -57,16 +59,14 @@ python app.py
 ⸻
 
 📌 注意事項
-	•	每次請求會送出 PDF 前段內容（預設最多 20,000 字元）給 OpenAI。
-	•	題目與答案格式由 GPT 模型回傳結果解析，請確保回應格式清楚標註【答案】。
-	•	若使用 GPT-4.1，請確認你的帳號與 API Key 有啟用相應權限。
+	•	每次請求僅使用前 20,000 字元的文字進行出題（避免超過 token 限制）
+	•	題目與答案格式由 GPT 模型產生，請確保回傳中含有【答案】、[Answer:]、【答え】等標記
+	•	請確保你的 OpenAI API 金鑰已啟用 GPT-4.1 權限（或對應的 Azure 模型）
 
 ⸻
 
 🧠 延伸功能建議（可未來開發）
-	•	答題互動模式（點選選項作答）
-	•	題庫匯出（CSV / Word / Quizlet 格式）
-	•	自動難度分級與知識點標記
-	•	支援 DOCX、圖像 OCR（手寫試卷）
-
-⸻
+	•	✅ 答題互動模式（點選選項答題）
+	•	✅ 題庫匯出為 Google Sheet / CSV / SQLite
+	•	✅ 難度標記與知識點分類
+	•	✅ 支援圖像 OCR、語音轉文字與 EPUB、ZIP 解壓
