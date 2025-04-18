@@ -150,9 +150,10 @@ def build_gradio_blocks():
                 question_types = gr.CheckboxGroup(["單選選擇題", "多選選擇題", "問答題", "申論題"],
                                                   label="選擇題型（可複選）",
                                                   value=["單選選擇題"])
-                num_questions = gr.Slider(1, 10, value=3, step=1, label="題目數量")
+                num_questions = gr.Slider(1, 20, value=10, step=1, label="題目數量")
                 llm_key = gr.Textbox(label="LLM Key (不會儲存)", type="password", placeholder="請輸入你的 OpenAI API Key")
-                baseurl = gr.Textbox(label="Base URL (如 https://api.openai.com/v1)", placeholder="請輸入 API Base URL")
+                baseurl = gr.Textbox(label="Base URL (如 https://api.openai.com/v1)",value="https://api.openai.com/v1", placeholder="請輸入 API Base URL")
+                model_box = gr.Textbox(label="Model 名稱", value="gpt-4.1", placeholder="如 gpt-4.1, gpt-3.5-turbo, ...")
                 generate_btn = gr.Button("✏️ 開始出題")
 
             with gr.Column():
@@ -162,7 +163,7 @@ def build_gradio_blocks():
                 md_out = gr.File(label="📝 Markdown 檔下載")
                 quizlet_out = gr.File(label="📋 Quizlet (TSV) 檔下載")
 
-        model_box = gr.Textbox(label="Model 名稱", value="gpt-4.1", placeholder="如 gpt-4.1, gpt-3.5-turbo, ...")
+
         generate_btn.click(fn=generate_questions,
                            inputs=[file_input, question_types, num_questions, lang, llm_key, baseurl, model_box],
                            outputs=[qbox, abox])
