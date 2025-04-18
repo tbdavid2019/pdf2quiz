@@ -39,16 +39,19 @@ pip install -r requirements.txt
 
 ▶️ 執行方式
 
-只需啟動一次 FastAPI 伺服器，UI 與 API 共用同一個 port：
+#### 1️⃣ 啟動 Gradio UI（本地出題介面）
 
 ```bash
-uvicorn app:api_app --host 0.0.0.0 --port 7860
+python app.py
 ```
-
 - 啟動後，瀏覽器開啟 `http://localhost:7860/` 可使用 Gradio 出題 UI
-- 其他應用可呼叫 `http://localhost:7860/api/generate` 取得題目與答案
 
-（如需單純本地開發測試，也可用 `python app.py`，但建議用 uvicorn 方式）
+#### 2️⃣ 啟動 API 伺服器（已內建於 api_server.py）
+
+```bash
+uvicorn api_server:api_app --host 0.0.0.0 --port 7861
+```
+- 其他應用可呼叫 `http://localhost:7861/api/generate` 取得題目與答案
 
 ---
 📂 專案檔案結構
@@ -73,12 +76,12 @@ uvicorn app:api_app --host 0.0.0.0 --port 7860
 
 ## 🌐 API 使用方式
 
-本專案同時支援 HTTP API，方便其他應用程式直接呼叫產生題目。UI 與 API 共用同一個伺服器與 port。
+本專案支援 HTTP API，方便其他應用程式直接呼叫產生題目。API 需獨立啟動於不同 port。
 
 ### 路徑說明
 
-- Gradio UI：`/`（例如 http://localhost:7860/）
-- API：`/api/generate`（例如 http://localhost:7860/api/generate）
+- Gradio UI：`http://localhost:7860/`
+- API：`http://localhost:7861/api/generate`
 
 ### API 路由
 
@@ -101,6 +104,7 @@ uvicorn app:api_app --host 0.0.0.0 --port 7860
 }
 ```
 
+api_server.py 已內建於專案，可直接啟動使用。
 ---
 
 🧠 延伸功能建議（可未來開發）

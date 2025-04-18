@@ -170,44 +170,9 @@ def build_gradio_blocks():
                          outputs=[md_out, quizlet_out])
     return demo
 
-api_app = FastAPI(title="AI 出題系統 API")
-
-# 掛載 Gradio UI 到 FastAPI 根路徑 "/"
-demo = build_gradio_blocks()
-import gradio as gr
-gr.mount_gradio_app(api_app, demo, path="/")
-
-@api_app.post("/api/generate")
-async def api_generate(
-    files: List[UploadFile] = File(...),
-    question_types: List[str] = Form(...),
-    num_questions: int = Form(...),
-    lang: str = Form(...),
-    llm_key: Optional[str] = Form(None),
-    baseurl: Optional[str] = Form(None)
-):
-    # 將 UploadFile 轉為臨時檔案物件，與 Gradio 行為一致
-    temp_files = []
-    for f in files:
-        temp = tempfile.NamedTemporaryFile(delete=False)
-        temp.write(await f.read())
-        temp.flush()
-        temp_files.append(temp)
-        temp.name = temp.name  # 保持介面一致
-
-    # 呼叫原本的出題邏輯
-    questions, answers = generate_questions(
-        temp_files, question_types, num_questions, lang, llm_key, baseurl
-    )
-
-    # 關閉臨時檔案
-    for temp in temp_files:
-        temp.close()
-
-    return JSONResponse({"questions": questions, "answers": answers})
-
-# 啟動方式：
-# uvicorn app:api_app --host 0.0.0.0 --port 7860
+if __name__ == "__main__":
+    demo = build_gradio_blocks()
+    demo.launch()
 
 # --- FastAPI API 介面 ---
 from fastapi import FastAPI, UploadFile, File, Form
