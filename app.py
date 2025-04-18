@@ -22,7 +22,7 @@ def extract_text_from_files(files):
 
 # ✅ 產出題目與答案（根據語言與題型）
 
-def generate_questions(files, question_types, num_questions, lang, llm_key, baseurl):
+def generate_questions(files, question_types, num_questions, lang, llm_key, baseurl, model=None):
     try:
         text = extract_text_from_files(files)
         trimmed_text = text[:200000]
@@ -30,6 +30,7 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
         # 優先使用 .env，否則用 UI 傳入值
         key = os.getenv("OPENAI_API_KEY") or llm_key
         base = os.getenv("OPENAI_API_BASE") or baseurl
+        model_name = model or "gpt-4.1"
         if not key or not base:
             return "⚠️ 請輸入 LLM key 與 baseurl", ""
         client = OpenAI(api_key=key, base_url=base)
@@ -80,7 +81,7 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
         prompt = prompt_map[lang].format(n=num_questions, types=types_str, text=trimmed_text)
 
         response = client.chat.completions.create(
-            model="gpt-4.1",
+            model=model_name,
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content
@@ -161,8 +162,9 @@ def build_gradio_blocks():
                 md_out = gr.File(label="📝 Markdown 檔下載")
                 quizlet_out = gr.File(label="📋 Quizlet (TSV) 檔下載")
 
+        model_box = gr.Textbox(label="Model 名稱", value="gpt-4.1", placeholder="如 gpt-4.1, gpt-3.5-turbo, ...")
         generate_btn.click(fn=generate_questions,
-                           inputs=[file_input, question_types, num_questions, lang, llm_key, baseurl],
+                           inputs=[file_input, question_types, num_questions, lang, llm_key, baseurl, model_box],
                            outputs=[qbox, abox])
 
         export_btn.click(fn=export_files,
@@ -189,7 +191,8 @@ async def api_generate(
     num_questions: int = Form(...),
     lang: str = Form(...),
     llm_key: Optional[str] = Form(None),
-    baseurl: Optional[str] = Form(None)
+    baseurl: Optional[str] = Form(None),
+    model: Optional[str] = Form(None)
 ):
     # 將 UploadFile 轉為臨時檔案物件，與 Gradio 行為一致
     temp_files = []
@@ -202,7 +205,7 @@ async def api_generate(
 
     # 呼叫原本的出題邏輯
     questions, answers = generate_questions(
-        temp_files, question_types, num_questions, lang, llm_key, baseurl
+        temp_files, question_types, num_questions, lang, llm_key, baseurl, model
     )
 
     # 關閉臨時檔案
