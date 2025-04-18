@@ -25,7 +25,7 @@ def extract_text_from_files(files):
 def generate_questions(files, question_types, num_questions, lang):
     try:
         text = extract_text_from_files(files)
-        trimmed_text = text[:20000]
+        trimmed_text = text[:200000]
 
         type_map = {
             "單選選擇題": {
