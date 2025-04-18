@@ -23,16 +23,13 @@
 
 ```bash
 pip install -r requirements.txt
+```
 
 2️⃣ 建立 .env 檔案
 
 OPENAI_API_KEY=sk-你的金鑰
 OPENAI_API_BASE=https://api.openai.com/v1
 
-若使用 Azure OpenAI，請另外加上：
-
-OPENAI_API_TYPE=azure
-OPENAI_API_VERSION=2024-04-01-preview
 
 
 
