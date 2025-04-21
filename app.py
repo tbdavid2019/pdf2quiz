@@ -145,7 +145,17 @@ def build_gradio_blocks():
 
         with gr.Row():
             with gr.Column():
-                file_input = gr.File(label="上傳文件（可多檔）", file_types=[".pdf", ".docx", ".pptx", ".xlsx"], file_count="multiple")
+                file_input = gr.File(
+                    label="上傳文件（可多檔）",
+                    file_types=[
+                        ".pdf", ".ppt", ".pptx", ".doc", ".docx", ".xls", ".xlsx", ".csv",
+                        ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".webp",
+                        ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".amr", ".wma", ".opus",
+                        ".html", ".htm", ".json", ".xml", ".txt", ".md", ".rtf", ".log",
+                        ".zip", ".epub"
+                    ],
+                    file_count="multiple"
+                )
                 lang = gr.Dropdown(["繁體中文", "簡體中文", "English", "日本語"], value="繁體中文", label="語言 Language")
                 question_types = gr.CheckboxGroup(["單選選擇題", "多選選擇題", "問答題", "申論題"],
                                                   label="選擇題型（可複選）",
