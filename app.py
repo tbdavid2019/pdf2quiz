@@ -13,9 +13,21 @@ api_base = os.getenv("OPENAI_API_BASE")
 # ✅ 合併多檔案文字
 
 def extract_text_from_files(files):
-    md = MarkItDown()
+    from openai import OpenAI
+    import os
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    api_base = os.getenv("OPENAI_API_BASE")
+    client = OpenAI(api_key=api_key, base_url=api_base)
+
+    image_exts = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".webp"}
     merged_text = ""
     for f in files:
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext in image_exts:
+            md = MarkItDown(llm_client=client, llm_model="gpt-4.1")
+        else:
+            md = MarkItDown()
         result = md.convert(f.name)
         merged_text += result.text_content + "\n"
     return merged_text
