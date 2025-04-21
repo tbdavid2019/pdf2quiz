@@ -82,6 +82,10 @@ uvicorn api_server:api_app --host 0.0.0.0 --port 7861
 
 - Gradio UI：`http://localhost:7860/`
 - API：`http://localhost:7861/api/generate`
+- Swagger UI（API 文件）：`http://localhost:7861/docs`
+
+
+> 預設 API port 為 7861，Gradio UI port 為 7860，請勿混用。
 
 ### API 路由
 
