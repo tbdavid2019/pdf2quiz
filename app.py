@@ -89,8 +89,28 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
         }
 
         lang_key = lang_key_map[lang]
-        types_str = "、".join([type_map[t][lang_key] for t in question_types])
-        prompt = prompt_map[lang].format(n=num_questions, types=types_str, text=trimmed_text)
+        
+        # 處理字串形式的 question_types（來自 API）
+        if isinstance(question_types, str):
+            # 先用逗號分隔，再用頓號分隔
+            qt_list = []
+            for part in question_types.split(","):
+                for subpart in part.split("、"):
+                    if subpart.strip():
+                        qt_list.append(subpart.strip())
+            question_types = qt_list
+        
+        # 檢查每個題型是否有效
+        valid_types = list(type_map.keys())
+        for t in question_types:
+            if t not in valid_types:
+                return f"⚠️ 無效的題型：{t}。有效題型為：{', '.join(valid_types)}", ""
+        
+        try:
+            types_str = "、".join([type_map[t][lang_key] for t in question_types])
+            prompt = prompt_map[lang].format(n=num_questions, types=types_str, text=trimmed_text)
+        except Exception as e:
+            return f"⚠️ 處理題型時發生錯誤：{str(e)}。question_types={question_types}", ""
 
         response = client.chat.completions.create(
             model=model_name,
@@ -98,27 +118,45 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
         )
         content = response.choices[0].message.content
 
+        # 改進解析邏輯，更好地處理題目和答案
+        import re
+        
+        # 嘗試找出題號模式（如 1. 2. 等）
         questions, answers = [], []
-        for line in content.strip().split("\n"):
-            if not line.strip():
-                continue
-            try:
-                if "【答案】" in line:
-                    q, a = line.split("【答案】", 1)
-                elif "[Answer:" in line:
-                    q, a = line.split("[Answer:", 1)
-                    a = a.rstrip("]")
-                elif "【答え】" in line:
-                    q, a = line.split("【答え】", 1)
-                else:
+        
+        # 先用正則表達式找出所有題目和答案
+        question_pattern = re.compile(r'(\d+\.\s+.*?)(?:【答案】|【答え】|\[Answer:)(.*?)(?=\d+\.\s+|$)', re.DOTALL)
+        matches = question_pattern.findall(content)
+        
+        if matches:
+            # 如果找到符合模式的題目和答案
+            for q, a in matches:
+                questions.append(q.strip())
+                # 清理答案中的標記
+                clean_a = a.strip().rstrip(']')
+                answers.append(clean_a)
+        else:
+            # 如果沒有找到符合模式的題目和答案，使用原始的行分割方法
+            for line in content.strip().split("\n"):
+                if not line.strip():
+                    continue
+                try:
+                    if "【答案】" in line:
+                        q, a = line.split("【答案】", 1)
+                    elif "[Answer:" in line:
+                        q, a = line.split("[Answer:", 1)
+                        a = a.rstrip("]")
+                    elif "【答え】" in line:
+                        q, a = line.split("【答え】", 1)
+                    else:
+                        questions.append(line.strip())
+                        answers.append("")
+                        continue
+                    questions.append(q.strip())
+                    answers.append(a.strip())
+                except Exception:
                     questions.append(line.strip())
                     answers.append("")
-                    continue
-                questions.append(q.strip())
-                answers.append(a.strip())
-            except Exception:
-                questions.append(line.strip())
-                answers.append("")
 
         if not questions:
             return "⚠️ 無法解析 AI 回傳內容，請檢查輸入內容或稍後再試。", ""

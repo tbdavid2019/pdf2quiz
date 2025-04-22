@@ -4,3 +4,4 @@ openai
 markitdown[all]
 fastapi
 uvicorn
+type_map
