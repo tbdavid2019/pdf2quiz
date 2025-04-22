@@ -34,10 +34,18 @@ type_map = {
     }
 }
 
+class QuestionItem(BaseModel):
+    number: str = Field(..., description="題號")
+    content: str = Field(..., description="題目內容")
+
+class AnswerItem(BaseModel):
+    number: str = Field(..., description="題號")
+    content: str = Field(..., description="答案內容")
+
 class GenerateResponse(BaseModel):
-    questions: str = Field(..., description="題目卷內容（多題合併，格式為純文字）")
-    answers: str = Field(..., description="答案內容（與題目順序對應，格式為純文字）")
-    json_data: dict = Field(..., description="JSON格式的題目與答案，方便前端處理")
+    questions: List[QuestionItem] = Field(..., description="題目列表，每個項目包含題號和內容")
+    answers: List[AnswerItem] = Field(..., description="答案列表，每個項目包含題號和內容")
+    raw_text: str = Field(..., description="原始文本格式（向後兼容）")
 
 api_app = FastAPI(
     title="AI 出題系統 API",
@@ -51,9 +59,9 @@ API 會根據上傳的文件自動產生題目與答案，支援多檔、多語�
 - `baseurl`：API Base URL（可選，未填則用 .env）
 
 回傳內容：
-- `questions`：題目卷內容（多題合併，格式為純文字）
-- `answers`：答案內容（與題目順序對應，格式為純文字）
-- `json_data`：JSON格式的題目與答案，包含 `items` 陣列，每個項目有 `question` 和 `answer` 欄位
+- `questions`：題目列表，每個項目包含題號（number）和內容（content）
+- `answers`：答案列表，每個項目包含題號（number）和內容（content）
+- `raw_text`：原始文本格式（向後兼容）
 """,
     version="1.0.0"
 )
@@ -82,53 +90,41 @@ async def api_generate(
         temp_files.append(temp)
         temp.name = temp.name
 
-    questions, answers = generate_questions(
+    result, raw_text = generate_questions(
         temp_files, question_types, num_questions, lang, llm_key, baseurl
     )
 
     for temp in temp_files:
         temp.close()
-
-    # 將問題和答案分割成列表
-    question_list = [q.strip() for q in questions.split("\n\n") if q.strip()]
-    answer_list = [a.strip() for a in answers.split("\n\n") if a.strip()]
     
-    # 過濾和重組題目與答案
-    filtered_items = []
-    current_question = ""
-    current_answer = ""
-    question_pattern = re.compile(r"^\d+\.\s+")
+    # 檢查是否有錯誤
+    if isinstance(result, dict) and "error" in result:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": result["error"]}
+        )
     
+    # 將結果轉換為 API 回傳格式
+    questions_list = []
+    answers_list = []
     
-    # 尋找題號開頭的題目和對應答案
-    for i, q in enumerate(question_list):
-        # 如果是題號開頭的題目
-        if question_pattern.match(q) or (i < len(question_list) - 1 and question_pattern.match(question_list[i+1])):
-            # 如果已經有收集到的題目，先加入結果
-            if current_question and current_answer:
-                filtered_items.append({"question": current_question, "answer": current_answer})
-            
-            # 開始收集新題目
-            current_question = q
-            if i < len(answer_list):
-                current_answer = answer_list[i]
-            else:
-                current_answer = ""
+    for q in result["questions"]:
+        questions_list.append(QuestionItem(
+            number=q["number"],
+            content=q["content"]
+        ))
     
-    # 加入最後一題
-    if current_question and current_answer:
-        filtered_items.append({"question": current_question, "answer": current_answer})
+    for a in result["answers"]:
+        answers_list.append(AnswerItem(
+            number=a["number"],
+            content=a["content"]
+        ))
     
-    # 如果沒有找到符合格式的題目，使用原始資料
-    if not filtered_items:
-        filtered_items = [{"question": q, "answer": a} for q, a in zip(question_list, answer_list)]
-    
-    # 組合成 JSON 格式
-    json_data = {
-        "items": filtered_items
-    }
-    
-    return GenerateResponse(questions=questions, answers=answers, json_data=json_data)
+    return GenerateResponse(
+        questions=questions_list,
+        answers=answers_list,
+        raw_text=raw_text
+    )
 
 if __name__ == "__main__":
     import uvicorn
