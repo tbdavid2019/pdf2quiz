@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel, Field
 import tempfile
@@ -64,6 +65,15 @@ API 會根據上傳的文件自動產生題目與答案，支援多檔、多語�
 - `raw_text`：原始文本格式（向後兼容）
 """,
     version="1.0.0"
+)
+
+# 添加 CORS 中間件
+api_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允許所有來源，生產環境中應該限制為特定來源
+    allow_credentials=True,
+    allow_methods=["*"],  # 允許所有 HTTP 方法
+    allow_headers=["*"],  # 允許所有 HTTP 標頭
 )
 
 @api_app.post(
