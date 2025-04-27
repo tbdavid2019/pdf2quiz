@@ -2,8 +2,20 @@ import gradio as gr
 from openai import OpenAI
 import os
 import tempfile
+import logging
 from dotenv import load_dotenv
 from markitdown import MarkItDown
+
+# 配置日誌
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # 輸出到控制台
+        logging.FileHandler('pdf2quiz.log')  # 輸出到文件
+    ]
+)
+logger = logging.getLogger('pdf2quiz')
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -24,32 +36,45 @@ def extract_text_from_files(files):
     merged_text = ""
     for f in files:
         ext = os.path.splitext(f.name)[1].lower()
+        filename = os.path.basename(f.name)
+        logger.info(f"處理文件: {filename} (類型: {ext})")
         
         # 圖片文件直接使用 AI 處理
         if ext in image_exts:
+            logger.info(f"使用 AI 處理圖片文件: {filename}")
             md = MarkItDown(llm_client=client, llm_model="gpt-4.1")
             result = md.convert(f.name)
             merged_text += result.text_content + "\n"
+            logger.info(f"圖片文件處理完成: {filename}, 提取文本長度: {len(result.text_content)}")
         # PDF 文件先嘗試普通處理，如果提取不到足夠文本再使用 AI
         elif ext.lower() == ".pdf":
             # 先嘗試普通方式處理
+            logger.info(f"嘗試普通方式處理 PDF 文件: {filename}")
             md = MarkItDown()
             result = md.convert(f.name)
             
             # 檢查提取的文本是否足夠
+            text_length = len(result.text_content.strip()) if result.text_content else 0
+            logger.info(f"普通處理提取文本長度: {text_length}")
+            
             # 如果文本太少（少於 100 個字符），可能是掃描版 PDF，需要 AI 處理
-            if result.text_content and len(result.text_content.strip()) > 100:
+            if result.text_content and text_length > 100:
+                logger.info(f"普通處理成功，文本足夠: {filename}")
                 merged_text += result.text_content + "\n"
             else:
                 # 文本太少，可能是掃描版 PDF，使用 AI 處理
+                logger.info(f"普通處理提取文本不足，切換到 AI 處理: {filename}")
                 md = MarkItDown(llm_client=client, llm_model="gpt-4.1")
                 result = md.convert(f.name)
                 merged_text += result.text_content + "\n"
+                logger.info(f"AI 處理完成: {filename}, 提取文本長度: {len(result.text_content)}")
         # 其他文件類型使用普通處理
         else:
+            logger.info(f"使用普通方式處理文件: {filename}")
             md = MarkItDown()
             result = md.convert(f.name)
             merged_text += result.text_content + "\n"
+            logger.info(f"文件處理完成: {filename}, 提取文本長度: {len(result.text_content)}")
     return merged_text
 
 # ✅ 產出題目與答案（根據語言與題型）
@@ -181,11 +206,15 @@ Ensure that question numbers and answer numbers correspond exactly. Do not use a
         except Exception as e:
             return {"error": f"⚠️ 處理題型時發生錯誤：{str(e)}。question_types={question_types}"}, ""
 
+        logger.info(f"發送請求到 LLM 模型: {model_name}")
+        logger.info(f"使用語言: {lang}, 題型: {types_str}, 題目數量: {num_questions}")
+        
         response = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content
+        logger.info("LLM 回應成功，開始解析回應內容")
 
         # 解析 LLM 回傳的結構化內容
         import re
@@ -232,8 +261,17 @@ Ensure that question numbers and answer numbers correspond exactly. Do not use a
                 "content": answer
             })
         
+        # 記錄提取的題目和答案
+        if result["questions"]:
+            logger.info(f"成功提取題目和答案: {len(result['questions'])} 題")
+            for q in result["questions"]:
+                logger.info(f"題目 {q['number']}: {q['content'][:50]}...")
+            for a in result["answers"]:
+                logger.info(f"答案 {a['number']}: {a['content'][:50]}...")
+        
         # 如果沒有成功提取題目和答案，使用備用方法
         if not result["questions"]:
+            logger.warning("主要解析方法失敗，嘗試備用方法")
             # 備用方法：按行分析
             lines = content.strip().split("\n")
             current_number = ""
@@ -297,7 +335,10 @@ Ensure that question numbers and answer numbers correspond exactly. Do not use a
         
         # 如果仍然沒有提取到題目和答案，返回錯誤
         if not result["questions"]:
+            logger.error("無法解析 AI 回傳內容，所有解析方法都失敗")
             return {"error": "⚠️ 無法解析 AI 回傳內容，請檢查輸入內容或稍後再試。"}, ""
+        
+        logger.info(f"題目生成完成，共 {len(result['questions'])} 題")
         
         # 為了向後兼容，同時返回原始文本格式
         questions_text = "\n\n".join([f"題目{q['number']}：{q['content']}" for q in result["questions"]])
@@ -305,6 +346,7 @@ Ensure that question numbers and answer numbers correspond exactly. Do not use a
         
         return result, questions_text + "\n\n" + answers_text
     except Exception as e:
+        logger.exception(f"生成題目時發生錯誤: {str(e)}")
         return {"error": f"⚠️ 發生錯誤：{str(e)}"}, ""
 
 # ✅ 匯出 Markdown, Quizlet（TSV）
