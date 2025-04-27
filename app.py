@@ -24,12 +24,32 @@ def extract_text_from_files(files):
     merged_text = ""
     for f in files:
         ext = os.path.splitext(f.name)[1].lower()
+        
+        # 圖片文件直接使用 AI 處理
         if ext in image_exts:
             md = MarkItDown(llm_client=client, llm_model="gpt-4.1")
+            result = md.convert(f.name)
+            merged_text += result.text_content + "\n"
+        # PDF 文件先嘗試普通處理，如果提取不到足夠文本再使用 AI
+        elif ext.lower() == ".pdf":
+            # 先嘗試普通方式處理
+            md = MarkItDown()
+            result = md.convert(f.name)
+            
+            # 檢查提取的文本是否足夠
+            # 如果文本太少（少於 100 個字符），可能是掃描版 PDF，需要 AI 處理
+            if result.text_content and len(result.text_content.strip()) > 100:
+                merged_text += result.text_content + "\n"
+            else:
+                # 文本太少，可能是掃描版 PDF，使用 AI 處理
+                md = MarkItDown(llm_client=client, llm_model="gpt-4.1")
+                result = md.convert(f.name)
+                merged_text += result.text_content + "\n"
+        # 其他文件類型使用普通處理
         else:
             md = MarkItDown()
-        result = md.convert(f.name)
-        merged_text += result.text_content + "\n"
+            result = md.convert(f.name)
+            merged_text += result.text_content + "\n"
     return merged_text
 
 # ✅ 產出題目與答案（根據語言與題型）
