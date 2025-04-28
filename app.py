@@ -131,6 +131,12 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
         # 修改提示詞，要求 LLM 直接產出結構化的題目和答案
         prompt_map = {
             "繁體中文": """你是一位專業的出題者，請根據以下內容，設計 {n} 題以下類型的題目：{types}。
+
+請注意：你必須嚴格遵循指定的題型，如果要求是「單選選擇題」，就必須生成單選題，每題有四個選項(A,B,C,D)，而且只有一個正確答案。
+如果要求是「多選選擇題」，就必須生成多選題，每題有四到五個選項，可以有多個正確答案。
+如果要求是「問答題」，就必須生成簡答題，需要簡短的文字回答。
+如果要求是「申論題」，就必須生成需要較長篇幅回答的開放式問題。
+
 請嚴格按照以下格式輸出每個題目和答案：
 
 題目1：[題目內容]
@@ -144,6 +150,12 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
 請確保題號和答案號一一對應，不要使用其他格式。內容如下：
 {text}""",
             "簡體中文": """你是一位专业的出题者，请根据以下内容，设计 {n} 题以下类型的题目：{types}。
+
+请注意：你必须严格遵循指定的题型，如果要求是「单选选择题」，就必须生成单选题，每题有四个选项(A,B,C,D)，而且只有一个正确答案。
+如果要求是「多选选择题」，就必须生成多选题，每题有四到五个选项，可以有多个正确答案。
+如果要求是「问答题」，就必须生成简答题，需要简短的文字回答。
+如果要求是「申论题」，就必须生成需要较长篇幅回答的开放式问题。
+
 请严格按照以下格式输出每个题目和答案：
 
 题目1：[题目内容]
@@ -157,6 +169,13 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
 请确保题号和答案号一一对应，不要使用其他格式。内容如下：
 {text}""",
             "English": """You are a professional exam writer. Based on the following content, generate {n} questions of types: {types}.
+
+IMPORTANT: You must strictly follow the specified question types:
+- If "single choice question" is requested, create multiple choice questions with four options (A,B,C,D) and only ONE correct answer.
+- If "multiple choice question" is requested, create questions with 4-5 options where MORE THAN ONE option can be correct.
+- If "short answer" is requested, create questions requiring brief text responses.
+- If "essay question" is requested, create open-ended questions requiring longer responses.
+
 Please strictly follow this format for each question and answer:
 
 Question1: [question content]
@@ -170,6 +189,13 @@ Answer2: [answer content]
 Ensure that question numbers and answer numbers correspond exactly. Do not use any other format. Content:
 {text}""",
             "日本語": """あなたはプロの出題者です。以下の内容に基づいて、{types}を含む{n}問の問題を作成してください。
+
+重要：指定された問題タイプを厳守してください：
+- 「四択問題」が要求された場合、4つの選択肢（A,B,C,D）があり、正解が1つだけの選択問題を作成してください。
+- 「複数選択問題」が要求された場合、4〜5つの選択肢があり、複数の正解がある問題を作成してください。
+- 「短答式問題」が要求された場合、簡潔な文章での回答が必要な問題を作成してください。
+- 「記述式問題」が要求された場合、より長い回答が必要な開放型の問題を作成してください。
+
 以下の形式で各問題と回答を出力してください：
 
 問題1：[問題内容]
@@ -217,6 +243,7 @@ Ensure that question numbers and answer numbers correspond exactly. Do not use a
 
         logger.info(f"發送請求到 LLM 模型: {model_name}")
         logger.info(f"使用語言: {lang}, 題型: {types_str}, 題目數量: {num_questions}")
+        logger.info(f"選擇的題型: {question_types}")
         
         response = client.chat.completions.create(
             model=model_name,
@@ -404,9 +431,9 @@ def build_gradio_blocks():
                                                   label="選擇題型（可複選）",
                                                   value=["單選選擇題"])
                 num_questions = gr.Slider(1, 20, value=10, step=1, label="題目數量")
-                llm_key = gr.Textbox(label="LLM Key (不會儲存)", type="password", placeholder="請輸入你的 LLM API Key")
-                baseurl = gr.Textbox(label="Base URL (如 https://api.groq.com/openai/v1 )",value="https://api.openai.com/v1", placeholder="請輸入 API Base URL")
-                model_box = gr.Textbox(label="Model 名稱", value="gpt-4.1", placeholder="如 gpt-4.1, qwen-qwq-32b, ...")
+                llm_key = gr.Textbox(label="LLM Key (不會儲存)", type="password", placeholder="請輸入你的 LLM API Key，留空則使用 .env 設定")
+                baseurl = gr.Textbox(label="Base URL (如 https://api.groq.com/openai/v1 )", placeholder="請輸入 API Base URL，留空則使用 .env 設定")
+                model_box = gr.Textbox(label="Model 名稱", placeholder="如 gpt-4.1, qwen-qwq-32b, ...，留空則使用 .env 設定")
                 generate_btn = gr.Button("✏️ 開始出題 quiz")
 
             with gr.Column():
