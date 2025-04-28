@@ -84,10 +84,12 @@ def generate_questions(files, question_types, num_questions, lang, llm_key, base
         text = extract_text_from_files(files)
         trimmed_text = text[:200000]
 
-        # 優先使用 .env，否則用 UI 傳入值
-        key = os.getenv("OPENAI_API_KEY") or llm_key
-        base = os.getenv("OPENAI_API_BASE") or baseurl
-        model_name = model or "gpt-4.1"
+        # 優先使用 UI 傳入值，否則用 .env
+        key = llm_key if llm_key else os.getenv("OPENAI_API_KEY")
+        base = baseurl if baseurl else os.getenv("OPENAI_API_BASE")
+        model_name = model if model else "gpt-4.1"
+        
+        logger.info(f"使用的 API 設定 - Base URL: {base[:10]}..., Model: {model_name}")
         if not key or not base:
             return {"error": "⚠️ 請輸入 LLM key 與 baseurl"}, ""
         client = OpenAI(api_key=key, base_url=base)
@@ -375,7 +377,7 @@ import uvicorn
 
 def build_gradio_blocks():
     with gr.Blocks() as demo:
-        gr.Markdown("# 📄 通用 AI 出題系統（支援多檔、多語、匯出格式）")
+        gr.Markdown("# 📄 通用 AI 出題系統（支援多檔、多語、匯出格式）- DAVID888 ")
 
         with gr.Row():
             with gr.Column():
@@ -395,10 +397,10 @@ def build_gradio_blocks():
                                                   label="選擇題型（可複選）",
                                                   value=["單選選擇題"])
                 num_questions = gr.Slider(1, 20, value=10, step=1, label="題目數量")
-                llm_key = gr.Textbox(label="LLM Key (不會儲存)", type="password", placeholder="請輸入你的 OpenAI API Key")
-                baseurl = gr.Textbox(label="Base URL (如 https://api.openai.com/v1)",value="https://api.openai.com/v1", placeholder="請輸入 API Base URL")
-                model_box = gr.Textbox(label="Model 名稱", value="gpt-4.1", placeholder="如 gpt-4.1, gpt-3.5-turbo, ...")
-                generate_btn = gr.Button("✏️ 開始出題")
+                llm_key = gr.Textbox(label="LLM Key (不會儲存)", type="password", placeholder="請輸入你的 LLM API Key")
+                baseurl = gr.Textbox(label="Base URL (如 https://api.groq.com/openai/v1 )",value="https://api.openai.com/v1", placeholder="請輸入 API Base URL")
+                model_box = gr.Textbox(label="Model 名稱", value="gpt-4.1", placeholder="如 gpt-4.1, qwen-qwq-32b, ...")
+                generate_btn = gr.Button("✏️ 開始出題 quiz")
 
             with gr.Column():
                 qbox = gr.Textbox(label="📘 題目 Questions", lines=15)
