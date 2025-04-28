@@ -24,13 +24,17 @@ api_base = os.getenv("OPENAI_API_BASE")
 
 # ✅ 合併多檔案文字
 
-def extract_text_from_files(files):
+def extract_text_from_files(files, llm_key=None, baseurl=None, model_name=None):
     from openai import OpenAI
     import os
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    api_base = os.getenv("OPENAI_API_BASE")
+    # 優先使用 UI 傳入值，否則用 .env，最後才用默認值
+    api_key = llm_key if llm_key else os.getenv("OPENAI_API_KEY")
+    api_base = baseurl if baseurl else os.getenv("OPENAI_API_BASE")
+    model = model_name if model_name else os.getenv("OPENAI_MODEL", "gpt-4.1")
     client = OpenAI(api_key=api_key, base_url=api_base)
+    
+    logger.info(f"extract_text_from_files 使用的 API 設定 - Base URL: {api_base[:10] if api_base else 'None'}..., Model: {model}")
 
     image_exts = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".webp"}
     merged_text = ""
@@ -42,7 +46,7 @@ def extract_text_from_files(files):
         # 圖片文件直接使用 AI 處理
         if ext in image_exts:
             logger.info(f"使用 AI 處理圖片文件: {filename}")
-            md = MarkItDown(llm_client=client, llm_model="gpt-4.1")
+            md = MarkItDown(llm_client=client, llm_model=model)
             result = md.convert(f.name)
             merged_text += result.text_content + "\n"
             logger.info(f"圖片文件處理完成: {filename}, 提取文本長度: {len(result.text_content)}")
@@ -64,7 +68,7 @@ def extract_text_from_files(files):
             else:
                 # 文本太少，可能是掃描版 PDF，使用 AI 處理
                 logger.info(f"普通處理提取文本不足，切換到 AI 處理: {filename}")
-                md = MarkItDown(llm_client=client, llm_model="gpt-4.1")
+                md = MarkItDown(llm_client=client, llm_model=model)
                 result = md.convert(f.name)
                 merged_text += result.text_content + "\n"
                 logger.info(f"AI 處理完成: {filename}, 提取文本長度: {len(result.text_content)}")
@@ -81,15 +85,18 @@ def extract_text_from_files(files):
 
 def generate_questions(files, question_types, num_questions, lang, llm_key, baseurl, model=None):
     try:
-        text = extract_text_from_files(files)
-        trimmed_text = text[:200000]
-
-        # 優先使用 UI 傳入值，否則用 .env
+        # 優先使用 UI 傳入值，否則用 .env，最後才用默認值
         key = llm_key if llm_key else os.getenv("OPENAI_API_KEY")
         base = baseurl if baseurl else os.getenv("OPENAI_API_BASE")
-        model_name = model if model else "gpt-4.1"
+        model_name = model if model else os.getenv("OPENAI_MODEL", "gpt-4.1")
         
-        logger.info(f"使用的 API 設定 - Base URL: {base[:10]}..., Model: {model_name}")
+        logger.info(f"generate_questions 使用的 API 設定 - Base URL: {base[:10] if base else 'None'}..., Model: {model_name}")
+        
+        # 將 UI 傳入的值傳遞給 extract_text_from_files 函數
+        text = extract_text_from_files(files, llm_key=key, baseurl=base, model_name=model_name)
+        trimmed_text = text[:200000]
+
+        # 這裡不需要再次設置 key, base 和 model_name，因為已經在上面設置過了
         if not key or not base:
             return {"error": "⚠️ 請輸入 LLM key 與 baseurl"}, ""
         client = OpenAI(api_key=key, base_url=base)
